@@ -2,7 +2,22 @@
 title: "Lab 6 - Spicy"
 subtitle: "Performing Many Different Versions of an Analysis"
 editor: source
+  html:
+    embed-resources: true
+    echo: true
+    code-fold: show
+    warning: false
+    message: false
 ---
+
+```{r}
+#| include: false
+#| label: packages
+
+library(tidyverse)
+library(rlang)
+```
+
 
 This assignment will challenge your function writing abilities. I'm not going 
 to lie, these functions are difficult but well within your reach. I do, however,
@@ -15,6 +30,8 @@ your function writing
 2) and complete the "Alternative Lab 6". 
 
 # Setting the Stage
+
+
 
 My number one use case for writing functions and iteration / looping is to
 perform some exploration or modeling repeatedly for different "tweaked"
@@ -61,6 +78,44 @@ a threshold on the number of SDs away from the mean used to define outliers.
 
 ```{r}
 #| label: exercise-1
+# Function that removes outliers in a dataset
+# By default, the outliers removed will be values that are larger than 3 sd's from the mean
+
+# The function should take a data frame, the variables to remove outliers from without quotes, and the sd_thresh
+remove_outliers <- function(df, y, ..., sd_thresh = 3) {
+  # Put variables in one enquosure
+  vars <- enquos(...)
+  
+  # Filter df
+  df_filtered <- df |>
+    # keep specified columns
+    dplyr::select({{ y }}, !!!vars)
+
+# Check if y and other variables are numeric
+  if (sum(!sapply(df_filtered, FUN = is.numeric)) > 0) {
+    stop("All columns must be a numeric variable")
+  }
+  
+  
+  df |> 
+    
+    # calculate z scores within columns and determine if within threshold
+    # sum the booleans for each row. if is_outlier > 0 then it is an outlier for at least 1 var
+    dplyr::mutate(is_outlier = rowSums(across(.cols = c({{ y }}, !!!vars ),
+                                       ~ abs(. - mean(.)) / sd(.)) > sd_thresh))  |> 
+    # only keep rows with is_outlier == F
+    dplyr::filter(is_outlier == 0) |>
+    # remove is_outlier column
+    dplyr::select(-is_outlier)
+
+
+}
+
+## references for this function:
+# https://rlang.r-lib.org/reference/splice-operator.html
+# https://rlang.r-lib.org/reference/dyn-dots.html
+# https://rlang.r-lib.org/reference/topic-quosure.html
+
 
 ```
 
@@ -100,6 +155,29 @@ variables to impute values for, and a function to use when imputing.
 ```{r}
 #| label: exercise-2
 
+# Function that imputes missing values in a dataset
+# By default, the imputation function will be the mean
+# The function should take a data frame, the variables to impute from without quotes, and the impute_fun
+impute_missing <- function(df, y, ..., impute_fun = mean) {
+  # Put variables in one enquosure
+  vars <- enquos(...)
+  
+  # Filter df
+  df_filtered <- df |>
+    # keep specified columns (should all be numeric variables)
+    dplyr::select({{ y }}, !!!vars)
+  
+  # Check if y and other variables are numeric
+  if (sum(!sapply(df_filtered, FUN = is.numeric)) > 0) {
+    stop("All columns must be a numeric variable")
+  }
+  
+  df |> 
+    # Calculate desired stat (mean by default) within columns and replace na's with stat
+    dplyr::mutate(across(.cols = c({{ y }}, !!!vars),
+                         ~ replace_na(.x, impute_fun(.x)))) 
+}
+
 
 ```
 
@@ -108,16 +186,16 @@ variables to impute values for, and a function to use when imputing.
 ```{r}
 #| label: exercise-2-test
 #| error: true
-
 ## Testing how your function handles multiple input variables
 impute_missing(nycflights13::flights, 
                arr_delay, 
-               dep_delay) 
+               dep_delay)
+
 
 ## Testing how your function handles an input that isn't numeric
 impute_missing(nycflights13::flights, 
                arr_delay, 
-               carrier)
+               carrier) 
 
 ## Testing how your function handles a non-default impute_fun
 impute_missing(nycflights13::flights, 
@@ -141,18 +219,53 @@ model is fit.
 
 ```{r}
 #| label: exercise-3
+# Function that fits a linear regression model to a dataset
+# The function should take a data frame, the formula for the model, and the impute and remove_outliers arguments
 
-
+fit_model <- function(df, mod_formula, remove_outliers = FALSE, impute_missing = FALSE, ...) {
+  
+  # Check if mod_formula is complete
+  if (!rlang::is_formula(mod_formula, lhs = TRUE)) {
+    stop("`mod_formula` must be a valid formula. Check LHS and RHS!")
+  }
+  
+  # Remove outliers if specified
+  if (remove_outliers) {
+    df <- remove_outliers(df, ...)
+  }
+  
+  # Impute missing values if specified
+  if (impute_missing) {
+    df <- impute_missing(df, ...)
+  }
+  
+  # Fit the linear regression model after removing and/or imputing values
+  # Allow mod_formula to be a formula object
+  df |> 
+    lm(formula = mod_formula)
+}
 ```
 
 ## Testing Your Function! 
 
 ```{r}
 #| label: exercise-3-test
+#| error: true
 
 fit_model(
   diamonds,
   mod_formula = price ~ carat + cut,
+  remove_outliers = TRUE,
+  impute_missing = TRUE,
+  price, 
+  carat
+)
+
+## Test my fit_model() with an invalid mod_formula
+
+fit_model(
+  diamonds,
+  mod_formula =  ~ carat + cut,
   remove_outliers = TRUE,
   impute_missing = TRUE,
   price, 
