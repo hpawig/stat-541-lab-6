@@ -92,21 +92,25 @@ remove_outliers <- function(df, y, ..., sd_thresh = 3) {
   # Put variables in one enquosure
   vars <- enquos(...)
   
-  # Filter df
-  df_filtered <- df |>
-    # keep specified columns
-    dplyr::select({{ y }}, !!!vars)
-
+## Input-check error message idea from Dr. T
 # Check if y and other variables are numeric
-  if (sum(!sapply(df_filtered, FUN = is.numeric)) > 0) {
-    stop("All columns must be a numeric variable")
-  }
+  non_numeric <- df |> 
+    # keep specified columns
+    dplyr::select({{ y }}, !!!vars) |> 
+    map_lgl(~ !(is.numeric(.x))) |> 
+    keep(identity) |>
+    names() # these are the names of the columns which are not numeric
   
+  # Check for non-numeric columns
+
+  if (length(non_numeric) > 0) {
+    stop("\nAll columns must be a numeric variable.\nThe following columns are not numeric: ",
+         str_c(non_numeric, collapse = ", "))
+  }  
   
+  # calculate z scores within columns and determine if within threshold
+  # sum the booleans for each row. if is_outlier > 0 then it is an outlier for at least 1 var
   df |> 
-    
-    # calculate z scores within columns and determine if within threshold
-    # sum the booleans for each row. if is_outlier > 0 then it is an outlier for at least 1 var
     dplyr::mutate(is_outlier = rowSums(across(.cols = c({{ y }}, !!!vars ),
                                        ~ abs(. - mean(.)) / sd(.)) > sd_thresh))  |> 
     # only keep rows with is_outlier == F
@@ -167,16 +171,22 @@ variables to impute values for, and a function to use when imputing.
 impute_missing <- function(df, y, ..., impute_fun = mean) {
   # Put variables in one enquosure
   vars <- enquos(...)
+
+
+# Check if y and other variables are numeric
+  non_numeric <- df |> 
+    # keep specified columns
+    dplyr::select({{ y }}, !!!vars) |> 
+    map_lgl(~ !(is.numeric(.x))) |> 
+    keep(identity) |>
+    names() # these are the names of the columns which are not numeric
   
-  # Filter df
-  df_filtered <- df |>
-    # keep specified columns (should all be numeric variables)
-    dplyr::select({{ y }}, !!!vars)
-  
-  # Check if y and other variables are numeric
-  if (sum(!sapply(df_filtered, FUN = is.numeric)) > 0) {
-    stop("All columns must be a numeric variable")
-  }
+  # Check for non-numeric columns
+
+  if (length(non_numeric) > 0) {
+    stop("\nAll columns must be a numeric variable.\nThe following columns are not numeric: ",
+         str_c(non_numeric, collapse = ", "))
+  }  
   
   df |> 
     # Calculate desired stat (mean by default) within columns and replace na's with stat
