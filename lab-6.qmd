@@ -1,13 +1,19 @@
 ---
 title: "Lab 6 - Spicy"
+author: "Hannah Pawig"
+date: "2025-05-06"
 subtitle: "Performing Many Different Versions of an Analysis"
 editor: source
+format:
   html:
     embed-resources: true
     echo: true
     code-fold: show
     warning: false
     message: false
+    toc: true
+    toc-location: left
+    toc-title: "Document Sections"
 ---
 
 ```{r}
@@ -26,8 +32,8 @@ their function writing. So, there are two options for this week's lab:
 
 - **Option 1:** Complete this lab assignment in search of virtuoso status with
 your function writing
-- **Option 2:** Complete one of the difficult functions (Exercise 1 or Exercise
-2) and complete the "Alternative Lab 6". 
+- **Option 2:** Complete one of the difficult functions (Exercise 1 or Exercise 2)
+and complete the "Alternative Lab 6". 
 
 # Setting the Stage
 
@@ -220,7 +226,8 @@ model is fit.
 ```{r}
 #| label: exercise-3
 # Function that fits a linear regression model to a dataset
-# The function should take a data frame, the formula for the model, and the impute and remove_outliers arguments
+# The function should take a data frame, the formula for the model,
+# and the impute and remove_outliers arguments
 
 fit_model <- function(df, mod_formula, remove_outliers = FALSE, impute_missing = FALSE, ...) {
   
@@ -239,10 +246,11 @@ fit_model <- function(df, mod_formula, remove_outliers = FALSE, impute_missing =
     df <- impute_missing(df, ...)
   }
   
+
   # Fit the linear regression model after removing and/or imputing values
-  # Allow mod_formula to be a formula object
   df |> 
-    lm(formula = mod_formula)
+    lm(formula = mod_formula) 
+  
 }
 ```
 
@@ -273,6 +281,8 @@ fit_model(
 )
 ```
 
+
+
 # Iteration
 
 In the `diamonds` dataset, we want to understand the relationship between
@@ -302,13 +312,13 @@ generates all combinations.
 #| label: example-crossing-arguments
 #| eval: false
 
-df_arg_combos <- crossing(
+df_arg_combos <- tidyr::crossing(
     impute = c(TRUE, FALSE),
     remove_outliers = c(TRUE, FALSE), 
     mod = c(y ~ x1, 
             y ~ x1 + x2)
 )
-df_arg_combos
+df_arg_combos 
 ```
 
 **Exercise 4:** Use `crossing()` to create the data frame of argument
@@ -317,6 +327,20 @@ combinations for our analyses.
 ```{r}
 #| label: exercise-4
 
+
+# function to create the data frame of argument combinations
+ df_arg_combos <- tidyr::crossing(
+    impute = c(TRUE, FALSE),
+    remove_outliers = c(TRUE, FALSE), 
+    mod_formula = c(price ~ carat, 
+            price ~ carat + cut,
+            price ~ carat + cut + clarity,
+            price ~ carat + cut + clarity + color)
+  )
+
+df_arg_combos |> 
+  # create a mod_formula string to display
+  dplyr::mutate(mod_formula = as.character(mod_formula))
 ```
 
 ## Iterating Over the Parameters
@@ -329,6 +353,20 @@ every combination of arguments from `diamonds.
 ```{r}
 #| label: exercise-5
 
+# Use pmap to apply the fit_model function to each row of df_arg_combos
+purrr::pmap(
+  .l = list(df = c(rep(x = list(diamonds),
+                       times = nrow(df_arg_combos))), # need a copy of df for each row
+            mod_formula = df_arg_combos$mod_formula, 
+            remove_outliers = df_arg_combos$remove_outliers, 
+            impute_missing = df_arg_combos$impute),
+  .f = fit_model
+)
+
+
+
 
 ```
+
+
 
