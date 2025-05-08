@@ -239,7 +239,8 @@ model is fit.
 # The function should take a data frame, the formula for the model,
 # and the impute and remove_outliers arguments
 
-fit_model <- function(df, mod_formula, remove_outliers = FALSE, impute_missing = FALSE, ...) {
+fit_model <- function(df, mod_formula, remove_outliers = FALSE, impute_missing = FALSE, 
+                      print_inputs = FALSE, ...) {
   
   # Check if mod_formula is complete
   if (!rlang::is_formula(mod_formula, lhs = TRUE)) {
@@ -256,11 +257,29 @@ fit_model <- function(df, mod_formula, remove_outliers = FALSE, impute_missing =
     df <- impute_missing(df, ...)
   }
   
+  # Store Inputs in a list
+  # For printing purposes
+  
+  inputs <- list(df = df,
+            mod_formula = mod_formula, 
+            remove_outliers = remove_outliers, 
+            impute_missing = impute_missing)
+
+  
+  # Print inputs for user to see
+  # This is optional -- default is FALSE
+  if (print_inputs) {
+    print("Inputs:")
+    print(inputs)
+  }
+  
 
   # Fit the linear regression model after removing and/or imputing values
-  df |> 
-    lm(formula = mod_formula) 
+  df |>
+    lm(formula = (mod_formula))
   
+
+ 
 }
 ```
 
@@ -275,6 +294,7 @@ fit_model(
   mod_formula = price ~ carat + cut,
   remove_outliers = TRUE,
   impute_missing = TRUE,
+  print_inputs = TRUE,
   price, 
   carat
 )
